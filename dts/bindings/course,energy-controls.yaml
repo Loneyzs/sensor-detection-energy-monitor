@@ -1,0 +1,10 @@
+description: Energy monitor GPIO controls, polled by the application
+compatible: "course,energy-controls"
+include: base.yaml
+properties:
+  power-gpios:
+    type: phandle-array
+    required: true
+  confirm-gpios:
+    type: phandle-array
+    required: true

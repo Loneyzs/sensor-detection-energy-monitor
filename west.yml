@@ -1,0 +1,8 @@
+manifest:
+  projects:
+    - name: zephyr
+      url: https://github.com/zephyrproject-rtos/zephyr
+      revision: 6ab04eeedd2036cdae06538056bc55848f9e5f82
+      import: true
+  self:
+    path: energy-monitor

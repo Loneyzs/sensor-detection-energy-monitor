@@ -1,0 +1,8 @@
+description: INA219 raw shunt and bus acquisition with bounded conversion polling
+compatible: "course,ina219-monitor"
+include: i2c-device.yaml
+properties:
+  shunt-micro-ohms:
+    type: int
+    required: true
+    description: Actual shunt resistance in microohms; R100 is 100000

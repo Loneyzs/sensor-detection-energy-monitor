@@ -1,0 +1,3 @@
+description: Restore physical input sensing on MSPM0 software I2C pads after GPIO setup
+compatible: "course,mspm0-i2c-pads"
+include: [base.yaml, pinctrl-device.yaml]

@@ -1,0 +1,6 @@
+board:
+  name: energy_mspm0g3507
+  full_name: SEEKFREE MSPM0G3507 CoreBoard and MotherBoard Energy Monitor
+  vendor: seekfree
+  socs:
+    - name: mspm0g3507

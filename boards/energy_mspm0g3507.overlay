@@ -1,0 +1,45 @@
+#include <zephyr/dt-bindings/gpio/gpio.h>
+/ {
+	controls: energy-controls {
+		compatible = "course,energy-controls";
+		power-gpios = <&gpiob 14 GPIO_ACTIVE_HIGH>;
+		/* MotherBoard S2 already has an external 10k pull-up. */
+		confirm-gpios = <&gpioa 30 GPIO_ACTIVE_LOW>;
+	};
+	oled_bus: oled-i2c {
+		compatible = "gpio-i2c";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		scl-gpios = <&gpioa 1 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		sda-gpios = <&gpioa 0 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		clock-frequency = <100000>;
+		status = "okay";
+		oled: display@3c {
+			compatible = "course,ssd1306";
+			reg = <0x3c>;
+		};
+	};
+	ina_bus: ina-i2c {
+		compatible = "gpio-i2c";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		scl-gpios = <&gpiob 2 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		sda-gpios = <&gpiob 3 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		clock-frequency = <100000>;
+		status = "okay";
+		ina219: monitor@40 {
+			compatible = "course,ina219-monitor";
+			reg = <0x40>;
+			shunt-micro-ohms = <100000>;
+		};
+	};
+	i2c_pad_config: i2c-pad-config {
+		compatible = "course,mspm0-i2c-pads";
+		pinctrl-0 = <&gpioa_00_pa0 &gpioa_01_pa1 &gpiob_02_pb2 &gpiob_03_pb3>;
+		pinctrl-names = "default";
+	};
+};
+&gpioa_00_pa0 { input-enable; drive-open-drain; bias-disable; };
+&gpioa_01_pa1 { input-enable; drive-open-drain; bias-disable; };
+&gpiob_02_pb2 { input-enable; drive-open-drain; bias-disable; };
+&gpiob_03_pb3 { input-enable; drive-open-drain; bias-disable; };
