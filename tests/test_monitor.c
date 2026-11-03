@@ -2,94 +2,102 @@
 #include <assert.h>
 #include <stdio.h>
 
+#define RUN_UW 211200  /* 12V、680Ω：0.1mA分辨率下约17.6mA。 */
+#define LOW_UW 72000   /* 12V、2kΩ：6.0mA。 */
+
 static void feed(struct monitor *m, int64_t now, int64_t power)
 {
-	struct measurement sample = {.bus_mv = 5000, .current_ua = power / 5,
+	struct measurement sample = {.bus_mv = 12000, .current_ua = power / 12,
 		.power_uw = power};
 	monitor_sample(m, now, true, &sample);
 }
+
 static void start(struct monitor *m)
 {
 	monitor_init(m);
+	assert(m->state == MON_OFF && !monitor_power_on(m));
 	assert(!monitor_enable(m, 0));
 	feed(m, 0, 0);
 	assert(monitor_enable(m, 0));
 }
+
 int main(void)
 {
 	struct monitor m;
 	start(&m);
-	/* Constant 1W for exactly one hour, real elapsed time and 100ms samples. */
-	for (int64_t t = 0; t <= 3600000; t += 100) { feed(&m, t, 1000000); }
-	assert(m.energy_uw_ms / 3600000 == 1000000); /* 1Wh */
-	assert(m.state == MON_RUNNING);
-	/* Cancelling a countdown while still powered must preserve energy continuity. */
-	assert(monitor_enable(&m, 3600000));
-	feed(&m, 3600100, 1000000);
-	assert(m.energy_uw_ms == (uint64_t)1000000 * 3600100);
-	m.state = MON_RUNNING; /* isolate the threshold boundary from startup grace */
-	/* Threshold equality breaks the consecutive low-power window. */
-	feed(&m, 3600200, 0);
-	assert(m.state == MON_PENDING);
-	feed(&m, 3600300, 300000);
-	assert(m.state == MON_RUNNING);
-	/* Startup grace, standby duration, warning duration and final cutoff. */
-	start(&m);
-	for (int64_t t = 0; t < 33000; t += 100) { feed(&m, t, 0); }
-	assert(m.state == MON_PENDING);
-	feed(&m, 33000, 0);
-	assert(m.state == MON_WARNING);
-	feed(&m, 33100, 1000000);
-	assert(m.state == MON_RUNNING); /* Load resumed during warning. */
-	for (int64_t t = 33200; t <= 68200; t += 100) { feed(&m, t, 0); }
+	assert(m.params.threshold_mw == 140 && m.params.standby_ms == 30000);
+	/* 680Ω持续运行一分钟，跨过待机时长后仍保持供电。 */
+	for (int64_t t = 0; t <= 60000; t += 100) { feed(&m, t, RUN_UW); }
+	assert(m.state == MON_RUNNING && monitor_power_on(&m));
+
+	/* 从680Ω切至2kΩ，满30秒才断电；后续读数恢复也保持断电。 */
+	for (int64_t t = 60100; t < 90100; t += 100) { feed(&m, t, LOW_UW); }
+	assert(m.state == MON_PENDING && monitor_power_on(&m));
+	feed(&m, 90100, LOW_UW);
+	assert(m.state == MON_OFF && !monitor_power_on(&m));
+	feed(&m, 90200, RUN_UW);
 	assert(m.state == MON_OFF);
-	assert(!monitor_power_on(&m));
-	assert(monitor_enable(&m, 68300));
-	assert(m.state == MON_STARTUP);
-	/* Any failed acquisition cuts power, invalidates sample, and latches fault. */
-	monitor_sample(&m, 68400, false, NULL);
+	assert(monitor_enable(&m, 90200));
+	feed(&m, 90300, RUN_UW);
+	assert(m.state == MON_RUNNING);
+
+	/* 直接接2kΩ也从首次采样计30秒，没有启动宽限和额外提醒延时。 */
+	start(&m);
+	for (int64_t t = 0; t < 30000; t += 100) { feed(&m, t, LOW_UW); }
+	assert(m.state == MON_PENDING);
+	feed(&m, 30000, LOW_UW);
+	assert(m.state == MON_OFF);
+
+	/* 阈值相等归正常档，低于阈值才计时；正常采样会清除旧计时。 */
+	start(&m);
+	feed(&m, 0, 139999);
+	assert(m.state == MON_PENDING);
+	feed(&m, 100, 140000);
+	assert(m.state == MON_RUNNING);
+	for (int64_t t = 200; t < 30200; t += 100) { feed(&m, t, LOW_UW); }
+	assert(m.state == MON_PENDING);
+	feed(&m, 30200, LOW_UW);
+	assert(m.state == MON_OFF);
+
+	/* 待机期间按键重新计时，连续低功率时长从下一次采样重新起算。 */
+	start(&m);
+	for (int64_t t = 0; t <= 10000; t += 100) { feed(&m, t, LOW_UW); }
+	assert(monitor_enable(&m, 10000));
+	for (int64_t t = 10100; t < 40100; t += 100) { feed(&m, t, LOW_UW); }
+	assert(m.state == MON_PENDING);
+	feed(&m, 40100, LOW_UW);
+	assert(m.state == MON_OFF);
+
+	/* 通信异常立即断电；采集恢复后仍等待按键，防止自动重新上电。 */
+	start(&m);
+	monitor_sample(&m, 100, false, NULL);
 	assert(m.state == MON_FAULT && !m.valid && !monitor_power_on(&m));
-	assert(!monitor_enable(&m, 68401));
-	uint64_t energy = m.energy_uw_ms;
-	feed(&m, 68500, 1000000);
-	assert(m.state == MON_FAULT && m.energy_uw_ms == energy);
-	assert(monitor_enable(&m, 68501));
-	feed(&m, 68600, -1000000);
-	feed(&m, 68700, -1000000);
-	assert(m.energy_uw_ms == energy); /* reverse power does not count as consumption */
-	feed(&m, 70000, 1000000);
-	assert(m.state == MON_FAULT); /* Missing interval is never integrated. */
-	/* PA30 cancellation restarts grace/countdown. */
+	assert(!monitor_enable(&m, 100));
+	feed(&m, 200, RUN_UW);
+	assert(m.state == MON_FAULT && m.valid && !monitor_power_on(&m));
+	assert(monitor_enable(&m, 200));
+	feed(&m, 300, RUN_UW);
+	assert(m.state == MON_RUNNING);
+
+	/* 500ms采样间隔允许通过，超过后关断；接通后的首个采样同样受约束。 */
+	feed(&m, 800, RUN_UW);
+	assert(m.state == MON_RUNNING);
+	feed(&m, 1301, RUN_UW);
+	assert(m.state == MON_FAULT && !monitor_power_on(&m));
 	start(&m);
-	m.params.startup_ms = 0;
-	assert(monitor_enable(&m, 0));
-	feed(&m, 0, 0);
-	assert(m.state == MON_PENDING);
-	assert(monitor_enable(&m, 100));
-	assert(m.state == MON_STARTUP);
-	monitor_disable(&m);
-	feed(&m, 200, 1000000);
+	feed(&m, 501, RUN_UW);
+	assert(m.state == MON_FAULT);
+	start(&m);
+	feed(&m, 100, RUN_UW);
+	feed(&m, 99, RUN_UW);
+	assert(m.state == MON_FAULT);
+
+	/* 空载、反向电流均走低功率计时，完整覆盖原始有符号读数。 */
+	start(&m);
+	for (int64_t t = 0; t <= 30000; t += 100) { feed(&m, t, 0); }
 	assert(m.state == MON_OFF);
-	/* The 2W upper boundary trips even within startup grace, and latches. */
 	start(&m);
-	assert(m.params.max_power_mw == 2000);
-	feed(&m, 0, 1999999);
-	assert(monitor_power_on(&m));
-	feed(&m, 100, 2000000);
-	assert(m.state == MON_OVERPOWER && !monitor_power_on(&m));
-	energy = m.energy_uw_ms;
-	feed(&m, 200, 0);
-	assert(m.state == MON_OVERPOWER && m.energy_uw_ms == energy);
-	assert(monitor_enable(&m, 201));
-	feed(&m, 300, 2100000);
-	assert(m.state == MON_OVERPOWER); /* A still-excessive load trips again. */
-	/* A high-power sample also overrides a pending low-power warning. */
-	start(&m);
-	m.state = MON_WARNING;
-	m.warning_since_ms = 0;
-	feed(&m, 100, 2000001);
-	assert(m.state == MON_OVERPOWER && !monitor_power_on(&m));
-	monitor_sample(&m, 200, false, NULL);
-	assert(m.state == MON_FAULT); /* Acquisition errors remain independently active. */
-	puts("monitor: all tests passed");
+	for (int64_t t = 0; t <= 30000; t += 100) { feed(&m, t, -LOW_UW); }
+	assert(m.state == MON_OFF);
+	puts("monitor: fixed loads, 30s cutoff, threshold, reset, recovery and faults passed");
 }

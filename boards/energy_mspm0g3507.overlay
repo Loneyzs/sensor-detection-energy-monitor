@@ -3,7 +3,7 @@
 	controls: energy-controls {
 		compatible = "course,energy-controls";
 		power-gpios = <&gpiob 14 GPIO_ACTIVE_HIGH>;
-		/* MotherBoard S2 already has an external 10k pull-up. */
+		/* 底板S2已有外部10kΩ上拉，PA30低电平表示按下。 */
 		confirm-gpios = <&gpioa 30 GPIO_ACTIVE_LOW>;
 	};
 	oled_bus: oled-i2c {

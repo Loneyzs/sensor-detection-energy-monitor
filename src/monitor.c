@@ -4,7 +4,7 @@
 
 bool monitor_power_on(const struct monitor *m)
 {
-	return m->state >= MON_STARTUP && m->state <= MON_WARNING;
+	return m->state == MON_RUNNING || m->state == MON_PENDING;
 }
 
 void monitor_init(struct monitor *m)
@@ -13,9 +13,6 @@ void monitor_init(struct monitor *m)
 	m->params = (struct monitor_params){
 		.threshold_mw = MONITOR_THRESHOLD_MW,
 		.standby_ms = MONITOR_STANDBY_MS,
-		.warning_ms = MONITOR_WARNING_MS,
-		.startup_ms = MONITOR_STARTUP_MS,
-		.max_power_mw = MONITOR_MAX_POWER_MW,
 	};
 	m->state = MON_OFF;
 }
@@ -25,12 +22,10 @@ bool monitor_enable(struct monitor *m, int64_t now)
 	if (!m->valid) {
 		return false;
 	}
-	bool was_on = monitor_power_on(m);
-	m->state = MON_STARTUP;
-	m->startup_until_ms = now + m->params.startup_ms;
-	if (!was_on) {
-		m->have_previous = false;
-	}
+	/* 按键恢复供电或重新计时；低功率计时由接通后的新采样启动。 */
+	m->state = MON_RUNNING;
+	m->previous_ms = now;
+	m->have_previous = true;
 	return true;
 }
 
@@ -54,33 +49,17 @@ void monitor_sample(struct monitor *m, int64_t now, bool valid,
 		m->have_previous = false;
 		return;
 	}
-	/* A missing acquisition interval breaks timing and integration continuity. */
-	if (m->have_previous && (now <= m->previous_ms || now - m->previous_ms > 500)) {
+	/* 采样中断时关闭输出，防止用陈旧读数判断连续低功率。 */
+	if (m->have_previous && (now < m->previous_ms ||
+	    now - m->previous_ms > MONITOR_MAX_SAMPLE_GAP_MS)) {
 		m->state = MON_FAULT;
 		m->have_previous = false;
 		return;
 	}
-	int64_t power = sample->power_uw > 0 ? sample->power_uw : 0;
-	if (m->have_previous) {
-		m->energy_uw_ms += (uint64_t)((power + m->previous_power_uw) *
-					    (now - m->previous_ms) / 2);
-	}
 	m->previous_ms = now;
-	m->previous_power_uw = power;
 	m->have_previous = true;
-	/* Apply the power limit during startup and countdown as well as normal run. */
-	if (power >= (int64_t)m->params.max_power_mw * 1000) {
-		m->state = MON_OVERPOWER;
-		m->have_previous = false;
-		return;
-	}
-	if (m->state == MON_STARTUP) {
-		if (now < m->startup_until_ms) {
-			return;
-		}
-		m->state = MON_RUNNING;
-	}
-	if (power >= (int64_t)m->params.threshold_mw * 1000) {
+	/* 140mW及以上为正常档；恢复正常功率立即清除本轮待机计时。 */
+	if (sample->power_uw >= (int64_t)m->params.threshold_mw * 1000) {
 		m->state = MON_RUNNING;
 		return;
 	}
@@ -88,11 +67,8 @@ void monitor_sample(struct monitor *m, int64_t now, bool valid,
 		m->low_since_ms = now;
 		m->state = MON_PENDING;
 	}
-	if (m->state == MON_PENDING && now - m->low_since_ms >= m->params.standby_ms) {
-		m->state = MON_WARNING;
-		m->warning_since_ms = now;
-	}
-	if (m->state == MON_WARNING && now - m->warning_since_ms >= m->params.warning_ms) {
+	/* 2kΩ、空载及反向功率均按低功率处理，连续30秒后断电。 */
+	if (now - m->low_since_ms >= m->params.standby_ms) {
 		monitor_disable(m);
 	}
 }
@@ -100,7 +76,7 @@ void monitor_sample(struct monitor *m, int64_t now, bool valid,
 const char *monitor_state_name(enum monitor_state state)
 {
 	static const char *const names[] = {
-		"OFF", "STARTUP", "RUNNING", "PENDING", "WARNING", "FAULT", "OVERPOWER"
+		"OFF", "RUNNING", "PENDING", "FAULT"
 	};
 	return names[state];
 }

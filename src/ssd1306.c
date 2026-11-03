@@ -14,8 +14,8 @@ int ssd1306_init(void)
 	if (!i2c_is_ready_dt(&bus)) {
 		return -ENODEV;
 	}
-	/* SSD1306 128x64 with internal charge pump. 0x00 selects command stream.
-	 * Keep display OFF until a complete first frame has been transferred.
+	/* SSD1306 128×64使用内部电荷泵，0x00选择命令流。
+	 * 先保持关屏，首帧完整传输后再点亮，避免显示未初始化的显存。
 	 */
 	static const uint8_t init[] = {
 		0x00, 0xae, 0xd5, 0x80, 0xa8, 0x3f, 0xd3, 0x00, 0x40,
@@ -47,7 +47,7 @@ int ssd1306_update(const uint8_t frame[OLED_FRAME_BYTES])
 		if (rc) {
 			return rc;
 		}
-		/* Small transfers bound I2C lock time for the measurement thread. */
+		/* 每次发送32字节并主动让出CPU，给采样控制线程运行机会。 */
 		for (unsigned int col = 0; col < OLED_WIDTH; col += 32) {
 			uint8_t data[33] = {0x40};
 			memcpy(data + 1, frame + offset + col, 32);

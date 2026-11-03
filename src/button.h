@@ -7,6 +7,6 @@ struct button {
 	bool pressed;
 	int64_t changed_ms;
 };
-/* A release after a debounced press emits one action, regardless of hold time. */
-bool button_update(struct button *button, bool high, int64_t now);
+/* pressed_level为GPIO低有效转换后的逻辑值；消抖后的松开沿仅产生一次动作。 */
+bool button_update(struct button *button, bool pressed_level, int64_t now);
 #endif

@@ -8,9 +8,10 @@ static struct monitor snapshot;
 static uint8_t frame[OLED_FRAME_BYTES];
 static atomic_t ready;
 #ifdef CONFIG_DEBUG_OPTIMIZATIONS
-/* J-Link A/B test: suspend OLED transfers without changing any wiring. */
-volatile uint32_t oled_debug_pause; /* 1=stop transfers, 2=display off + stop transfers */
+/* J-Link调试时可暂停OLED传输，对照检查采样通信。 */
+volatile uint32_t oled_debug_pause; /* 1=暂停传输，2=关屏并暂停传输 */
 #endif
+/* 主线程发布测量快照，显示线程加锁复制后再发I²C，避免阻塞负载控制。 */
 K_MUTEX_DEFINE(snapshot_lock);
 
 void oled_publish(const struct monitor *m)

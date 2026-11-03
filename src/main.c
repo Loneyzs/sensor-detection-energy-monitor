@@ -2,7 +2,6 @@
 #include "monitor.h"
 #include "button.h"
 #include "oled.h"
-#include "ui_model.h"
 #include <errno.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
@@ -17,6 +16,7 @@ static int io_init(void)
 	if (!gpio_is_ready_dt(&power)) {
 		return -ENODEV;
 	}
+	/* PB14高电平导通，上电先配置为低电平，等待用户按键接通负载。 */
 	int rc = gpio_pin_configure_dt(&power, GPIO_OUTPUT_INACTIVE);
 	if (rc) {
 		return rc;
@@ -62,12 +62,14 @@ int main(void)
 			if (rc && m.state != previous_state) {
 				printk("INA219 error: %d; output disabled\n", rc);
 			}
+			/* 转换完成后等待100ms；状态机使用实际时间计算30秒时长。 */
 			next_sample = now + 100;
 		}
-		int high = gpio_pin_get_dt(&key);
-		if (high < 0) {
+		/* PA30配置为低有效，gpio_pin_get_dt返回1表示物理按下。 */
+		int pressed = gpio_pin_get_dt(&key);
+		if (pressed < 0) {
 			monitor_sample(&m, now, false, NULL);
-		} else if (button_update(&button, high != 0, now)) {
+		} else if (button_update(&button, pressed != 0, now)) {
 			if (!monitor_enable(&m, now)) {
 				printk("Enable refused: measurement unavailable\n");
 			} else {
@@ -89,14 +91,11 @@ int main(void)
 			previous_state = m.state;
 		}
 		if (now >= next_report) {
-			uint64_t resistance = 0;
-			bool resistance_valid = monitor_resistance_mohm(&m, &resistance);
 			printk("DATA valid=%u state=%s bus=%d mV current=%d uA power=%lld uW "
-			       "energy=%llu uWh R_valid=%u R=%llu mOhm oled=%u\n",
+			       "oled=%u\n",
 			       m.valid, monitor_state_name(m.state), m.reading.bus_mv,
 			       m.reading.current_ua, (long long)m.reading.power_uw,
-			       (unsigned long long)(m.energy_uw_ms / 3600000), resistance_valid,
-			       (unsigned long long)resistance, oled_is_ready());
+			       oled_is_ready());
 			const struct ina219_diagnostics *d = ina219_diagnostics_get();
 			printk("INA_DIAG n=%u ok=%u fail_cfg=%u fail_bus=%u fail_shunt=%u "
 			       "timeout=%u range=%u last=%d step=%u raw=%04x/%04x\n",

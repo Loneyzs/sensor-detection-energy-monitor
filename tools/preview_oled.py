@@ -3,7 +3,7 @@
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 root = Path(__file__).resolve().parent.parent
-names = ['running', 'pending', 'warning', 'off', 'overpower', 'fault']
+names = ['running', 'pending', 'off', 'fault', 'recovered']
 canvas = Image.new('RGB', (384 * len(names), 224), '#202020')
 draw = ImageDraw.Draw(canvas)
 font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf', 14)

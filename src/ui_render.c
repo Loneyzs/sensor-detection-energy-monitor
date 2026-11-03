@@ -48,23 +48,8 @@ static void text(uint8_t *frame, int x, int y, const char *str, int scale)
 void ui_render(const struct ui_view *view, uint8_t frame[OLED_FRAME_BYTES])
 {
 	memset(frame, 0, OLED_FRAME_BYTES);
-	if (view->warning) {
-		text(frame, 40, 0, "即将断电", 1);
-		char digits[12];
-		/* Countdown is normally 1..5; 0 is shown until the next acquisition switches off. */
-		unsigned int n = view->remaining_s;
-		int len = 0;
-		do { digits[len++] = '0' + n % 10; n /= 10; } while (n && len < 10);
-		for (int i = 0; i < len / 2; ++i) {
-			char c = digits[i]; digits[i] = digits[len-1-i]; digits[len-1-i] = c;
-		}
-		digits[len] = '\0';
-		text(frame, (OLED_WIDTH - len * 18 - 12) / 2, 20, digits, 3);
-		text(frame, (OLED_WIDTH + len * 18 - 12) / 2, 28, "秒", 1);
-		text(frame, 28, 52, "按键取消断电", 1);
-		return;
-	}
-	static const int y[] = {0, 10, 20, 30, 40, 52};
+	/* 三行测量值和两行中文状态均留在同一页，待机期间也持续显示读数。 */
+	static const int y[] = {0, 14, 28, 40, 52};
 	for (int i = 0; i < UI_LINE_COUNT; ++i) {
 		text(frame, 0, y[i], view->lines[i], 1);
 	}
