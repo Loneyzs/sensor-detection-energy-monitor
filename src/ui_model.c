@@ -31,23 +31,37 @@ void ui_build(const struct monitor *m, int64_t now, struct ui_view *view)
 	snprintf(view->lines[0], UI_LINE_BYTES, "V: %s V", v);
 	snprintf(view->lines[1], UI_LINE_BYTES, "I: %s mA", i);
 	snprintf(view->lines[2], UI_LINE_BYTES, "P: %s W", p);
+	char r[24];
+	if (m->valid && monitor_power_on(m) && m->reading.bus_mv > 0 &&
+	    m->reading.current_ua >= 1000) {
+		/* R=U/I：mV÷µA乘1000得到Ω，再乘10保留0.1Ω。
+		 * 使用未按显示精度舍入的读数，并在整数除法前加半个除数实现四舍五入。
+		 * 断电、反向或低于1mA时显示--，避免零点附近相除造成阻值跳变。
+		 */
+		int64_t resistance = ((int64_t)m->reading.bus_mv * 10000 +
+				      m->reading.current_ua / 2) / m->reading.current_ua;
+		fixed(r, sizeof(r), resistance, 1, 10);
+	} else {
+		strcpy(r, "--");
+	}
+	snprintf(view->lines[3], UI_LINE_BYTES, "R: %s Ohm", r);
 
 	switch (m->state) {
 	case MON_OFF:
-		strcpy(view->lines[3], "已断电");
-		strcpy(view->lines[4], "按键恢复供电");
+		strcpy(view->lines[4], "已断电");
+		strcpy(view->lines[5], "按键恢复供电");
 		break;
 	case MON_RUNNING:
-		strcpy(view->lines[3], "正常供电");
+		strcpy(view->lines[4], "正常供电");
 		break;
 	case MON_PENDING:
-		snprintf(view->lines[3], UI_LINE_BYTES, "待机计时 %u/%u秒",
+		snprintf(view->lines[4], UI_LINE_BYTES, "待机计时 %u/%u秒",
 			 (unsigned int)((now - m->low_since_ms) / 1000), m->params.standby_ms / 1000);
-		strcpy(view->lines[4], "按键重新计时");
+		strcpy(view->lines[5], "按键重新计时");
 		break;
 	case MON_FAULT:
-		strcpy(view->lines[3], m->valid ? "异常已解除" : "传感器异常");
-		strcpy(view->lines[4], m->valid ? "按键恢复供电" : "输出已关闭");
+		strcpy(view->lines[4], m->valid ? "异常已解除" : "传感器异常");
+		strcpy(view->lines[5], m->valid ? "按键恢复供电" : "输出已关闭");
 		break;
 	}
 }

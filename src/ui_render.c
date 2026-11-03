@@ -48,8 +48,8 @@ static void text(uint8_t *frame, int x, int y, const char *str, int scale)
 void ui_render(const struct ui_view *view, uint8_t frame[OLED_FRAME_BYTES])
 {
 	memset(frame, 0, OLED_FRAME_BYTES);
-	/* 三行测量值和两行中文状态均留在同一页，待机期间也持续显示读数。 */
-	static const int y[] = {0, 14, 28, 40, 52};
+	/* 四行V/I/P/R使用8像素ASCII字形，底部两行中文各保留12像素高度。 */
+	static const int y[] = {0, 10, 20, 30, 40, 52};
 	for (int i = 0; i < UI_LINE_COUNT; ++i) {
 		text(frame, 0, y[i], view->lines[i], 1);
 	}
