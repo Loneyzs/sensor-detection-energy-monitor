@@ -17,7 +17,7 @@ bool i2c_is_ready_dt(const struct i2c_dt_spec *bus) { (void)bus; return bus_read
 int i2c_write_dt(const struct i2c_dt_spec *bus, const uint8_t *data, size_t size)
 {
 	assert(bus->addr == 0x40 && size == 3 && data[0] == 0);
-	assert(data[1] == 0x3e && data[2] == 0x67);
+	assert(data[1] == 0x39 && data[2] == 0x9f);
 	conversion_start = now;
 	return mode == CFG_FAIL ? -EIO : 0;
 }
@@ -32,7 +32,7 @@ int i2c_write_read_dt(const struct i2c_dt_spec *bus, const void *tx, size_t tx_s
 	uint16_t value;
 	if (reg == 2) {
 		value = ((mode == HIGH_V ? 27000 : raw_bus_mv) / 4) << 3;
-		if (mode != TIMEOUT && now - conversion_start >= 18) { value |= 2; }
+		if (mode != TIMEOUT && now - conversion_start >= 2) { value |= 2; }
 	} else {
 		assert(reg == 1);
 		value = mode == REVERSE ? (uint16_t)-1000 : mode == HIGH_I ? 32767 : (uint16_t)raw_shunt;
