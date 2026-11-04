@@ -2,8 +2,8 @@
 #include <assert.h>
 #include <stdio.h>
 
-#define RUN_UW 211200  /* 12V、680Ω：0.1mA分辨率下约17.6mA。 */
-#define LOW_UW 72000   /* 12V、2kΩ：6.0mA。 */
+#define RUN_UW 27680000  /* 12V、5Ω，计入0.1Ω分流后负载约27.7W。 */
+#define LOW_UW 14120000   /* 12V、10Ω，计入0.1Ω分流后负载约14.1W。 */
 
 static void feed(struct monitor *m, int64_t now, int64_t power)
 {
@@ -25,12 +25,12 @@ int main(void)
 {
 	struct monitor m;
 	start(&m);
-	assert(m.params.threshold_mw == 140 && m.params.standby_ms == 30000);
-	/* 680Ω持续运行一分钟，跨过待机时长后仍保持供电。 */
+	assert(m.params.threshold_mw == 21000 && m.params.standby_ms == 30000);
+	/* 5Ω持续运行一分钟，跨过待机时长后仍保持供电。 */
 	for (int64_t t = 0; t <= 60000; t += 100) { feed(&m, t, RUN_UW); }
 	assert(m.state == MON_RUNNING && monitor_power_on(&m));
 
-	/* 从680Ω切至2kΩ，满30秒才断电；后续读数恢复也保持断电。 */
+	/* 从5Ω切至10Ω，满30秒才断电；后续读数恢复也保持断电。 */
 	for (int64_t t = 60100; t < 90100; t += 100) { feed(&m, t, LOW_UW); }
 	assert(m.state == MON_PENDING && monitor_power_on(&m));
 	feed(&m, 90100, LOW_UW);
@@ -41,7 +41,7 @@ int main(void)
 	feed(&m, 90300, RUN_UW);
 	assert(m.state == MON_RUNNING);
 
-	/* 直接接2kΩ也从首次采样计30秒，没有启动宽限和额外提醒延时。 */
+	/* 直接接10Ω也从首次采样计30秒，没有启动宽限和额外提醒延时。 */
 	start(&m);
 	for (int64_t t = 0; t < 30000; t += 100) { feed(&m, t, LOW_UW); }
 	assert(m.state == MON_PENDING);
@@ -50,9 +50,9 @@ int main(void)
 
 	/* 阈值相等归正常档，低于阈值才计时；正常采样会清除旧计时。 */
 	start(&m);
-	feed(&m, 0, 139999);
+	feed(&m, 0, 20999999);
 	assert(m.state == MON_PENDING);
-	feed(&m, 100, 140000);
+	feed(&m, 100, 21000000);
 	assert(m.state == MON_RUNNING);
 	for (int64_t t = 200; t < 30200; t += 100) { feed(&m, t, LOW_UW); }
 	assert(m.state == MON_PENDING);

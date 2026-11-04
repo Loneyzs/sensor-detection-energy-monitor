@@ -91,14 +91,14 @@ int ina219_acquire(struct measurement *sample)
 	/* 欧姆定律I=Vshunt/Rshunt，按整数单位换算：
 	 * I[µA] = Vshunt[µV] × 1000000 / Rshunt[µΩ]。
 	 * R100时每个原始计数对应100µA=0.1mA。
-	 * 12V、680Ω约17.65mA，对应分流压降约1.765mV、原始值约176；
-	 * 12V、2kΩ约6mA，对应0.6mV、原始值约60，两档可稳定分开。
+	 * 12V电源计入0.1Ω分流电阻：5Ω负载约2.353A，分流235.3mV、原始值约23529；
+	 * 10Ω负载约1.188A，分流118.8mV、原始值约11881，均在±320mV量程内。
 	 * 先转int64_t再乘，防止µV乘1000000时超出32位整数范围。
 	 */
 	sample->bus_mv = bus_mv;
 	sample->current_ua = (int64_t)shunt_uv * 1000000 / SHUNT_UOHM;
-	/* P=U×I：mV×µA得到nW，除1000转为µW，供140mW阈值判断。
-	 * 使用实测母线电压；例如12000mV×6000µA/1000=72000µW=72mW。
+	/* P=U×I：mV×µA得到nW，除1000转为µW，供21W阈值判断。
+	 * 使用实测母线电压；例如低档约11880mV×1188100µA/1000=14114628µW≈14.1W。
 	 */
 	sample->power_uw = (int64_t)bus_mv * sample->current_ua / 1000;
 	diagnostics.successes++;

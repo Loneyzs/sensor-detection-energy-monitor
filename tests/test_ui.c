@@ -51,34 +51,34 @@ int main(void)
 	assert(!strcmp(view.lines[4], "已断电"));
 	assert(!strcmp(view.lines[5], "按键恢复供电"));
 
-	/* 680Ω正常档：电流用mA显示，保留INA219原始分辨率0.1mA。 */
-	struct measurement sample = {12000, 17600, 211200};
+	/* 5Ω正常档：计入0.1Ω分流压降，保留INA219的0.1mA显示分辨率。 */
+	struct measurement sample = {11764, 2352900, 27679515};
 	monitor_sample(&m, 0, true, &sample);
 	assert(monitor_enable(&m, 0));
 	monitor_sample(&m, 0, true, &sample);
 	ui_build(&m, 0, &view);
-	assert(!strcmp(view.lines[0], "V: 12.00 V"));
-	assert(!strcmp(view.lines[1], "I: 17.6 mA"));
-	assert(!strcmp(view.lines[2], "P: 0.211 W"));
-	assert(!strcmp(view.lines[3], "R: 681.8 Ohm"));
+	assert(!strcmp(view.lines[0], "V: 11.76 V"));
+	assert(!strcmp(view.lines[1], "I: 2352.9 mA"));
+	assert(!strcmp(view.lines[2], "P: 27.680 W"));
+	assert(!strcmp(view.lines[3], "R: 5.0 Ohm"));
 	assert(!strcmp(view.lines[4], "正常供电"));
 	assert(view.lines[5][0] == '\0');
 	save("running", &view);
 
-	/* 切换2kΩ后在同一页面保留测量值及中文计时提示。 */
-	sample = (struct measurement){12000, 6000, 72000};
+	/* 切换10Ω后在同一页面保留测量值及中文计时提示。 */
+	sample = (struct measurement){11880, 1188100, 14114628};
 	for (int64_t t = 100; t <= 12100; t += 100) {
 		monitor_sample(&m, t, true, &sample);
 	}
 	ui_build(&m, 12100, &view);
-	assert(!strcmp(view.lines[1], "I: 6.0 mA"));
-	assert(!strcmp(view.lines[2], "P: 0.072 W"));
-	assert(!strcmp(view.lines[3], "R: 2000.0 Ohm"));
+	assert(!strcmp(view.lines[1], "I: 1188.1 mA"));
+	assert(!strcmp(view.lines[2], "P: 14.115 W"));
+	assert(!strcmp(view.lines[3], "R: 10.0 Ohm"));
 	assert(!strcmp(view.lines[4], "待机计时 12/30秒"));
 	assert(!strcmp(view.lines[5], "按键重新计时"));
 	save("pending", &view);
 
-	struct measurement normal = {12000, 17600, 211200};
+	struct measurement normal = {11764, 2352900, 27679515};
 	monitor_sample(&m, 12200, true, &normal);
 	ui_build(&m, 12200, &view);
 	assert(!strcmp(view.lines[4], "正常供电"));

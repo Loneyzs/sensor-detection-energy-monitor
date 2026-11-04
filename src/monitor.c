@@ -58,7 +58,7 @@ void monitor_sample(struct monitor *m, int64_t now, bool valid,
 	}
 	m->previous_ms = now;
 	m->have_previous = true;
-	/* 140mW及以上为正常档；恢复正常功率立即清除本轮待机计时。 */
+	/* 21W及以上为正常档；恢复正常功率立即清除本轮待机计时。 */
 	if (sample->power_uw >= (int64_t)m->params.threshold_mw * 1000) {
 		m->state = MON_RUNNING;
 		return;
@@ -67,7 +67,7 @@ void monitor_sample(struct monitor *m, int64_t now, bool valid,
 		m->low_since_ms = now;
 		m->state = MON_PENDING;
 	}
-	/* 2kΩ、空载及反向功率均按低功率处理，连续30秒后断电。 */
+	/* 10Ω、空载及反向功率均按低功率处理，连续30秒后断电。 */
 	if (now - m->low_since_ms >= m->params.standby_ms) {
 		monitor_disable(m);
 	}

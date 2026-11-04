@@ -10,6 +10,7 @@ static bool bus_ready = true;
 static enum { OK, CFG_FAIL, BUS_FAIL, SHUNT_FAIL, TIMEOUT, HIGH_V, HIGH_I, REVERSE } mode;
 static int64_t conversion_start;
 static int16_t raw_shunt = 1000;
+static uint16_t raw_bus_mv = 12000;
 int64_t k_uptime_get(void) { return now; }
 void k_msleep(int ms) { now += ms; }
 bool i2c_is_ready_dt(const struct i2c_dt_spec *bus) { (void)bus; return bus_ready; }
@@ -30,7 +31,7 @@ int i2c_write_read_dt(const struct i2c_dt_spec *bus, const void *tx, size_t tx_s
 	}
 	uint16_t value;
 	if (reg == 2) {
-		value = ((mode == HIGH_V ? 27000 : 12000) / 4) << 3;
+		value = ((mode == HIGH_V ? 27000 : raw_bus_mv) / 4) << 3;
 		if (mode != TIMEOUT && now - conversion_start >= 18) { value |= 2; }
 	} else {
 		assert(reg == 1);
@@ -60,12 +61,14 @@ int main(void)
 	assert(ina219_acquire(&sample) == 0 && sample.current_ua == -100000 && sample.power_uw == -1200000);
 	/* 新负载的真实寄存器数量级：R100每计数对应0.1mA。 */
 	mode = OK;
-	raw_shunt = 176;
+	raw_shunt = 23529;
+	raw_bus_mv = 11764;
 	assert(ina219_acquire(&sample) == 0);
-	assert(sample.current_ua == 17600 && sample.power_uw == 211200);
-	raw_shunt = 60;
+	assert(sample.bus_mv == 11764 && sample.current_ua == 2352900 && sample.power_uw == 27679515);
+	raw_shunt = 11881;
+	raw_bus_mv = 11880;
 	assert(ina219_acquire(&sample) == 0);
-	assert(sample.current_ua == 6000 && sample.power_uw == 72000);
+	assert(sample.bus_mv == 11880 && sample.current_ua == 1188100 && sample.power_uw == 14114628);
 	raw_shunt = 0;
 	assert(ina219_acquire(&sample) == 0);
 	assert(sample.current_ua == 0 && sample.power_uw == 0);
