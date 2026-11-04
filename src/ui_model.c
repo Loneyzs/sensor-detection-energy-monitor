@@ -17,19 +17,19 @@ void ui_build(const struct monitor *m, int64_t now, struct ui_view *view)
 	memset(view, 0, sizeof(*view));
 	char v[24], i[24], p[24];
 	if (m->valid) {
-		/* 电压保留0.01V，电流保留0.1mA，功率保留0.001W。 */
+		/* 电压保留0.01V、电流保留0.01A、功率保留0.01W，适配ACS712的安培级负载。 */
 		fixed(v, sizeof(v), (m->reading.bus_mv + 5) / 10, 2, 100);
 		int64_t current = m->reading.current_ua;
-		current = current < 0 ? -((-current + 50) / 100) : (current + 50) / 100;
-		fixed(i, sizeof(i), current, 1, 10);
+		current = current < 0 ? -((-current + 5000) / 10000) : (current + 5000) / 10000;
+		fixed(i, sizeof(i), current, 2, 100);
 		int64_t power = m->reading.power_uw;
-		power = power < 0 ? -((-power + 500) / 1000) : (power + 500) / 1000;
-		fixed(p, sizeof(p), power, 3, 1000);
+		power = power < 0 ? -((-power + 5000) / 10000) : (power + 5000) / 10000;
+		fixed(p, sizeof(p), power, 2, 100);
 	} else {
 		strcpy(v, "--"); strcpy(i, "--"); strcpy(p, "--");
 	}
 	snprintf(view->lines[0], UI_LINE_BYTES, "V: %s V", v);
-	snprintf(view->lines[1], UI_LINE_BYTES, "I: %s mA", i);
+	snprintf(view->lines[1], UI_LINE_BYTES, "I: %s A", i);
 	snprintf(view->lines[2], UI_LINE_BYTES, "P: %s W", p);
 	char r[24];
 	if (m->valid && monitor_power_on(m) && m->reading.bus_mv > 0 &&

@@ -1,0 +1,23 @@
+description: ACS712-05B current sensing and motherboard input voltage dividers
+compatible: "course,acs712-monitor"
+include: base.yaml
+properties:
+  io-channels:
+    required: true
+    description: ADC current input followed by motherboard VCCBAT input
+  sensitivity-microvolt-per-amp:
+    type: int
+    required: true
+    description: ACS712 sensitivity at 5V supply; 05B is 185000
+  current-divider-top-ohms:
+    type: int
+    required: true
+  current-divider-bottom-ohms:
+    type: int
+    required: true
+  bus-divider-top-ohms:
+    type: int
+    required: true
+  bus-divider-bottom-ohms:
+    type: int
+    required: true

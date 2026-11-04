@@ -1,9 +1,10 @@
 #include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/adc/adc.h>
+#include <zephyr/dt-bindings/clock/mspm0_clock.h>
 / {
 	controls: energy-controls {
 		compatible = "course,energy-controls";
 		power-gpios = <&gpiob 14 GPIO_ACTIVE_HIGH>;
-		/* 底板S2已有外部10kΩ上拉，PA30低电平表示按下。 */
 		confirm-gpios = <&gpioa 30 GPIO_ACTIVE_LOW>;
 	};
 	oled_bus: oled-i2c {
@@ -19,27 +20,46 @@
 			reg = <0x3c>;
 		};
 	};
-	ina_bus: ina-i2c {
-		compatible = "gpio-i2c";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		scl-gpios = <&gpiob 2 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
-		sda-gpios = <&gpiob 3 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
-		clock-frequency = <100000>;
-		status = "okay";
-		ina219: monitor@40 {
-			compatible = "course,ina219-monitor";
-			reg = <0x40>;
-			shunt-micro-ohms = <100000>;
-		};
+	acs712: current-monitor {
+		compatible = "course,acs712-monitor";
+		/* 通道顺序与ADC返回缓冲区一致：PA25电流、PA22输入电压。 */
+		io-channels = <&adc0 2>, <&adc0 7>;
+		sensitivity-microvolt-per-amp = <185000>;
+		current-divider-top-ohms = <10000>;
+		current-divider-bottom-ohms = <10000>;
+		bus-divider-top-ohms = <10000>;
+		bus-divider-bottom-ohms = <1000>;
 	};
 	i2c_pad_config: i2c-pad-config {
 		compatible = "course,mspm0-i2c-pads";
-		pinctrl-0 = <&gpioa_00_pa0 &gpioa_01_pa1 &gpiob_02_pb2 &gpiob_03_pb3>;
+		pinctrl-0 = <&gpioa_00_pa0 &gpioa_01_pa1>;
 		pinctrl-names = "default";
 	};
 };
 &gpioa_00_pa0 { input-enable; drive-open-drain; bias-disable; };
 &gpioa_01_pa1 { input-enable; drive-open-drain; bias-disable; };
-&gpiob_02_pb2 { input-enable; drive-open-drain; bias-disable; };
-&gpiob_03_pb3 { input-enable; drive-open-drain; bias-disable; };
+&adc0 {
+	clocks = <&ckm MSPM0_CLOCK_ULPCLK>;
+	ti,clk-divider = <4>;
+	ti,clk-range = <6>; /* ULPCLK=40MHz，输入时钟32~40MHz档，再除4。 */
+	max-result-reg = <12>;
+	pinctrl-0 = <&analog_pa25 &analog_pa22>;
+	pinctrl-names = "default";
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	channel@2 {
+		reg = <2>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_VDD_1";
+		zephyr,acquisition-time = <ADC_ACQ_TIME(ADC_ACQ_TIME_TICKS, 160)>;
+		zephyr,resolution = <12>;
+	};
+	channel@7 {
+		reg = <7>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_VDD_1";
+		zephyr,acquisition-time = <ADC_ACQ_TIME(ADC_ACQ_TIME_TICKS, 160)>;
+		zephyr,resolution = <12>;
+	};
+};

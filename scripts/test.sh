@@ -12,5 +12,5 @@ cc "${flags[@]}" src/monitor.c src/ui_model.c src/ui_render.c src/button.c \
 "$test_dir/ui"
 cc "${flags[@]}" -Itests/stubs src/ssd1306.c tests/test_oled_transport.c -o "$test_dir/oled"
 "$test_dir/oled"
-cc "${flags[@]}" -Itests/stubs src/ina219.c tests/test_ina219.c -o "$test_dir/ina219"
-"$test_dir/ina219"
+cc "${flags[@]}" -Itests/stubs src/acs712.c src/monitor.c tests/test_acs712.c -o "$test_dir/acs712"
+"$test_dir/acs712"

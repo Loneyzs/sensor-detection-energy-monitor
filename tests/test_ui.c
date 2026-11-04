@@ -45,40 +45,40 @@ int main(void)
 	monitor_init(&m);
 	ui_build(&m, 0, &view);
 	assert(!strcmp(view.lines[0], "V: -- V"));
-	assert(!strcmp(view.lines[1], "I: -- mA"));
+	assert(!strcmp(view.lines[1], "I: -- A"));
 	assert(!strcmp(view.lines[2], "P: -- W"));
 	assert(!strcmp(view.lines[3], "R: -- Ohm"));
 	assert(!strcmp(view.lines[4], "已断电"));
 	assert(!strcmp(view.lines[5], "按键恢复供电"));
 
-	/* 680Ω正常档：电流用mA显示，保留INA219原始分辨率0.1mA。 */
-	struct measurement sample = {12000, 17600, 211200};
+	/* 5Ω正常档：保留V/I/P/R六行布局和中文状态。 */
+	struct measurement sample = {12000, 2400000, 28800000};
 	monitor_sample(&m, 0, true, &sample);
 	assert(monitor_enable(&m, 0));
 	monitor_sample(&m, 0, true, &sample);
 	ui_build(&m, 0, &view);
 	assert(!strcmp(view.lines[0], "V: 12.00 V"));
-	assert(!strcmp(view.lines[1], "I: 17.6 mA"));
-	assert(!strcmp(view.lines[2], "P: 0.211 W"));
-	assert(!strcmp(view.lines[3], "R: 681.8 Ohm"));
+	assert(!strcmp(view.lines[1], "I: 2.40 A"));
+	assert(!strcmp(view.lines[2], "P: 28.80 W"));
+	assert(!strcmp(view.lines[3], "R: 5.0 Ohm"));
 	assert(!strcmp(view.lines[4], "正常供电"));
 	assert(view.lines[5][0] == '\0');
 	save("running", &view);
 
-	/* 切换2kΩ后在同一页面保留测量值及中文计时提示。 */
-	sample = (struct measurement){12000, 6000, 72000};
+	/* 切换10Ω后在同一页面保留测量值及中文计时提示。 */
+	sample = (struct measurement){12000, 1200000, 14400000};
 	for (int64_t t = 100; t <= 12100; t += 100) {
 		monitor_sample(&m, t, true, &sample);
 	}
 	ui_build(&m, 12100, &view);
-	assert(!strcmp(view.lines[1], "I: 6.0 mA"));
-	assert(!strcmp(view.lines[2], "P: 0.072 W"));
-	assert(!strcmp(view.lines[3], "R: 2000.0 Ohm"));
+	assert(!strcmp(view.lines[1], "I: 1.20 A"));
+	assert(!strcmp(view.lines[2], "P: 14.40 W"));
+	assert(!strcmp(view.lines[3], "R: 10.0 Ohm"));
 	assert(!strcmp(view.lines[4], "待机计时 12/30秒"));
 	assert(!strcmp(view.lines[5], "按键重新计时"));
 	save("pending", &view);
 
-	struct measurement normal = {12000, 17600, 211200};
+	struct measurement normal = {12000, 2400000, 28800000};
 	monitor_sample(&m, 12200, true, &normal);
 	ui_build(&m, 12200, &view);
 	assert(!strcmp(view.lines[4], "正常供电"));
@@ -91,7 +91,7 @@ int main(void)
 	sample = (struct measurement){12000, 0, 0};
 	monitor_sample(&m, 42400, true, &sample);
 	ui_build(&m, 42400, &view);
-	assert(!strcmp(view.lines[1], "I: 0.0 mA"));
+	assert(!strcmp(view.lines[1], "I: 0.00 A"));
 	assert(!strcmp(view.lines[4], "已断电"));
 	assert(!strcmp(view.lines[5], "按键恢复供电"));
 	save("off", &view);
@@ -101,7 +101,7 @@ int main(void)
 	monitor_sample(&m, 42600, false, NULL);
 	ui_build(&m, 42600, &view);
 	assert(!strcmp(view.lines[0], "V: -- V"));
-	assert(!strcmp(view.lines[1], "I: -- mA"));
+	assert(!strcmp(view.lines[1], "I: -- A"));
 	assert(!strcmp(view.lines[2], "P: -- W"));
 	assert(!strcmp(view.lines[3], "R: -- Ohm"));
 	assert(!strcmp(view.lines[4], "传感器异常"));
@@ -119,8 +119,8 @@ int main(void)
 	sample = (struct measurement){12000, -6100, -73200};
 	monitor_sample(&m, 42900, true, &sample);
 	ui_build(&m, 42900, &view);
-	assert(!strcmp(view.lines[1], "I: -6.1 mA"));
-	assert(!strcmp(view.lines[2], "P: -0.073 W"));
+	assert(!strcmp(view.lines[1], "I: -0.01 A"));
+	assert(!strcmp(view.lines[2], "P: -0.07 W"));
 	assert(!strcmp(view.lines[3], "R: -- Ohm"));
 	/* 零电流和近零读数不显示阻值；正向达到1mA时恢复计算。 */
 	m.reading.current_ua = 0;
@@ -133,5 +133,5 @@ int main(void)
 	ui_build(&m, 42900, &view);
 	assert(!strcmp(view.lines[3], "R: 12000.0 Ohm"));
 	button_test();
-	puts("ui: V/I/P/R pages, resistance validity, mA precision, 30s flow, faults and button debounce passed");
+	puts("ui: V/I/P/R pages, resistance validity, ampere formatting, 30s flow, faults and button debounce passed");
 }

@@ -1,4 +1,4 @@
-#include "ina219.h"
+#include "acs712.h"
 #include "monitor.h"
 #include "button.h"
 #include "oled.h"
@@ -43,24 +43,18 @@ int main(void)
 		return rc;
 	}
 	oled_start(&m);
-	printk("12V energy monitor: boot OFF; button=restore/cancel countdown.\n");
+	printk("12V ACS712-05B monitor: boot OFF; button=restore/cancel countdown.\n");
 	int64_t next_sample = 0, next_report = 0;
 	enum monitor_state previous_state = MON_OFF;
 	while (true) {
-#ifdef CONFIG_DEBUG_OPTIMIZATIONS
-		if (ina219_debug_scan_request) {
-			ina219_debug_scan_request = 0;
-			ina219_debug_scan();
-		}
-#endif
 		int64_t now = k_uptime_get();
 		if (now >= next_sample) {
 			struct measurement sample;
-			rc = ina219_acquire(&sample);
+			rc = acs712_acquire(&sample);
 			now = k_uptime_get();
 			monitor_sample(&m, now, rc == 0, rc == 0 ? &sample : NULL);
 			if (rc && m.state != previous_state) {
-				printk("INA219 error: %d; output disabled\n", rc);
+				printk("ACS712 error: %d; output disabled\n", rc);
 			}
 			/* 转换完成后等待100ms；状态机使用实际时间计算30秒时长。 */
 			next_sample = now + 100;
@@ -96,13 +90,12 @@ int main(void)
 			       m.valid, monitor_state_name(m.state), m.reading.bus_mv,
 			       m.reading.current_ua, (long long)m.reading.power_uw,
 			       oled_is_ready());
-			const struct ina219_diagnostics *d = ina219_diagnostics_get();
-			printk("INA_DIAG n=%u ok=%u fail_cfg=%u fail_bus=%u fail_shunt=%u "
-			       "timeout=%u range=%u last=%d step=%u raw=%04x/%04x\n",
-			       d->attempts, d->successes, d->failures[INA_CONFIG],
-			       d->failures[INA_BUS], d->failures[INA_SHUNT],
-			       d->failures[INA_CONVERSION], d->failures[INA_RANGE],
-			       d->last_error, d->last_failure, d->bus_raw, d->shunt_raw);
+			const struct acs712_diagnostics *d = acs712_diagnostics_get();
+			printk("ACS_DIAG n=%u ok=%u fail=%u last=%d calibrated=%u "
+			       "raw=%u/%u out=%d uV zero=%d uV\n",
+			       d->attempts, d->successes, d->failures, d->last_error,
+			       d->calibrated, d->current_raw, d->bus_raw,
+			       d->output_uv, d->zero_uv);
 			next_report = now + 1000;
 		}
 		k_msleep(10);
